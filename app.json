@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "ShowMe",
+    "slug": "showme-test",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "scheme": "showme-test",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.playoffp.showmetest",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "a3edc048-af41-49ca-be29-d4df80911593"
+      },
+      "TMDB_BEARER": "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJhNzM2NjRlYjg3MTdjNjU3MWMyZWI3ZWQ1N2Q5NTFmMyIsIm5iZiI6MTc0OTE3MTQ2OS43NTYsInN1YiI6IjY4NDIzZDBkZjE5OGFlMjAwMWYyY2ExYiIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.H_V7lfgiUzFMIhnUTEI8HlnDPWitKm61tQWZ4ke0e5M",
+      "TMDB_API_KEY": "a73664eb8717c6571c2eb7ed57d951f3"
+    },
+    "owner": "playoffp"
+  }
+}

@@ -1,0 +1,6 @@
+/* ───────── For-You builder ───────── */
+async function buildForYouList(prefs: string[]): Promise<Show[]> {
+  // ... rest of the function ...
+}
+
+// ... existing code ... 
