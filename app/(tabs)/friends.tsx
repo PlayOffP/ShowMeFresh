@@ -43,7 +43,6 @@ export default function FriendsScreen() {
   const [isAddingFriend, setIsAddingFriend] = useState(false);
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const isLandscape = width > height;
   const { loading } = useFriends();
 
   const unreadSharedShows = getUnreadSharedShows();

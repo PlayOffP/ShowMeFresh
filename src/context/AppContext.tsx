@@ -124,7 +124,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Handle user authentication state
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      console.log('🔄 AppContext: Auth state changed:', currentUser?.email);
+      console.log('🔄 AppContext: Auth state changed:', currentUser?.email || (currentUser?.isAnonymous ? 'Anonymous User' : 'No User'));
       
       // Check if we just signed out
       if (!currentUser && user) {
@@ -140,6 +140,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setJustSignedOut(false);
           setSignOutTimestamp(null);
         }, 5000);
+      }
+      
+      // If a new anonymous user signs in, check if this was a manual action
+      if (currentUser && currentUser.isAnonymous && !user) {
+        console.log('🔄 New anonymous user detected - checking if manual sign-in');
+        
+        // Check if auto guest sign-in is disabled (indicating manual sign-in)
+        const autoGuestDisabled = await AsyncStorage.getItem(STORAGE_DISABLE_AUTO_GUEST);
+        if (autoGuestDisabled === 'false') {
+          console.log('✅ Manual anonymous sign-in detected - resetting prevention flags');
+          setDisableAutoGuestSignIn(false);
+          setJustSignedOut(false);
+          setSignOutTimestamp(null);
+        }
       }
       
       setUser(currentUser);
@@ -226,42 +240,60 @@ export function AppProvider({ children }: { children: ReactNode }) {
                           currentPath === '/' ||
                           currentPath === '';
         
-        // Additional check: if we're on the root path and no specific route, don't auto sign-in
+        // Check if user just logged out by checking timestamp
+        const recentSignOut = signOutTimestamp && (Date.now() - signOutTimestamp) < 15000; // 15 seconds
+        
+        // More comprehensive blocking conditions
         const shouldBlockAutoSignIn = isAuthFlow || 
                                     disableAutoGuestSignIn || 
                                     justSignedOut ||
+                                    recentSignOut || // Additional check for recent sign out
                                     currentPath === '/' ||
                                     currentPath === '' ||
                                     !currentPath || // Block if no path is available yet
-                                    isInitialLoad; // Block during initial app load
+                                    isInitialLoad || // Block during initial app load
+                                    currentPath.includes('profile'); // Block if still on profile page
         
-        // Only attempt auto sign-in if we have a valid path and are not in an auth flow
-        if (!shouldBlockAutoSignIn && currentPath && currentPath !== '/' && currentPath !== '') {
-          console.log('🚨 Auto guest sign-in triggered!');
+        // Only attempt auto sign-in if explicitly safe to do so
+        if (!shouldBlockAutoSignIn && 
+            currentPath && 
+            currentPath !== '/' && 
+            currentPath !== '' &&
+            !isAuthFlow &&
+            !currentPath.includes('profile') &&
+            !currentPath.includes('welcome')) {
           
-          // Add a small delay to prevent race conditions with routing
+          console.log('🚨 Auto guest sign-in triggered!');
+          console.log('   Conditions: path=' + currentPath + ', isAuthFlow=' + isAuthFlow + ', disabled=' + disableAutoGuestSignIn);
+          
+          // Add a delay to prevent race conditions with routing
           setTimeout(async () => {
-            try {
-              await signInAnonymously(auth);
-            } catch (error: any) {
-              console.error("❌ Anonymous sign-in failed:", error.message);
-              
-              // If anonymous sign-in fails due to network, still set up local profile
-              if (error.message?.includes('offline') || error.message?.includes('network')) {
-                console.log('📱 Offline mode - setting up local profile');
-                const localProfile = await AsyncStorage.getItem(STORAGE_PROFILE);
-                if (localProfile) {
-                  const profile = JSON.parse(localProfile);
-                  setUserProfile({ ...defaultProfile, ...profile });
-                } else {
-                  setUserProfile(defaultProfile);
+            // Double-check conditions before actually signing in
+            if (!disableAutoGuestSignIn && !justSignedOut && !recentSignOut) {
+              try {
+                await signInAnonymously(auth);
+              } catch (error: any) {
+                console.error("❌ Anonymous sign-in failed:", error.message);
+                
+                // If anonymous sign-in fails due to network, still set up local profile
+                if (error.message?.includes('offline') || error.message?.includes('network')) {
+                  console.log('📱 Offline mode - setting up local profile');
+                  const localProfile = await AsyncStorage.getItem(STORAGE_PROFILE);
+                  if (localProfile) {
+                    const profile = JSON.parse(localProfile);
+                    setUserProfile({ ...defaultProfile, ...profile });
+                  } else {
+                    setUserProfile(defaultProfile);
+                  }
                 }
               }
+            } else {
+              console.log('🚫 Auto guest sign-in cancelled - conditions changed');
             }
-          }, 1000); // 1 second delay
+          }, 2000); // Increased delay to 2 seconds
         } else {
-          console.log('✅ Auto guest sign-in blocked - Auth flow, disabled, just signed out, on root path, or initial load');
-          console.log('   Path:', currentPath, 'isAuthFlow:', isAuthFlow, 'disableAutoGuestSignIn:', disableAutoGuestSignIn, 'justSignedOut:', justSignedOut, 'isInitialLoad:', isInitialLoad);
+          console.log('✅ Auto guest sign-in blocked');
+          console.log('   Reasons: isAuthFlow=' + isAuthFlow + ', disabled=' + disableAutoGuestSignIn + ', justSignedOut=' + justSignedOut + ', recentSignOut=' + recentSignOut + ', path=' + currentPath);
         }
       }
     });
@@ -311,24 +343,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await AsyncStorage.setItem(STORAGE_PROFILE, JSON.stringify(newProfile));
       console.log('✅ Profile saved to AsyncStorage');
       
-      // Update Firestore if user is authenticated
-      if (user) {
-        console.log('🔄 User authenticated, updating Firestore...');
+      // Update Firestore if user is authenticated (but skip for anonymous users to avoid hangs)
+      if (user && !user.isAnonymous) {
+        console.log('🔄 Authenticated non-anonymous user, updating Firestore...');
         try {
           const userDocRef = doc(db, 'users', user.uid);
           const updateData = {
             profile: newProfile,
             updatedAt: new Date().toISOString(),
+            // Include other necessary fields in case document doesn't exist yet
+            email: user.email,
+            lastActive: new Date().toISOString(),
           };
           
-          console.log('🔄 Calling updateDoc with data:', updateData);
-          await updateDoc(userDocRef, updateData);
+          console.log('🔄 Calling setDoc with merge for safe update...');
+          // Use setDoc with merge option instead of updateDoc to handle cases where document doesn't exist yet
+          await setDoc(userDocRef, updateData, { merge: true });
           console.log('✅ User profile updated in Firestore');
         } catch (error: any) {
           console.warn('⚠️ Failed to update profile in Firestore (offline?):', error.message);
           console.warn('⚠️ Firestore error details:', error);
           // Profile is still saved locally, will sync when online
         }
+      } else if (user && user.isAnonymous) {
+        console.log('👤 Anonymous user detected, skipping Firestore update (local storage only)');
       } else {
         console.log('📱 No user authenticated, skipping Firestore update');
       }
@@ -592,7 +630,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setJustSignedOut(true);
     setSignOutTimestamp(Date.now());
     
-    // Store the disabled state
+    // Store the disabled state persistently
     await AsyncStorage.setItem(STORAGE_DISABLE_AUTO_GUEST, 'true');
     
     // Clear user profile from state
@@ -611,6 +649,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.log('🧹 Cleared user-specific onboarding status');
     }
     
+    // Clear general onboarding status as well
+    await AsyncStorage.removeItem('onboarded');
+    await AsyncStorage.removeItem('userGenres');
+    
     // Sign out from Firebase
     try {
       await auth.signOut();
@@ -619,13 +661,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.error('❌ Firebase sign out failed:', error);
     }
     
-    // Clear the flags after 5 seconds to allow manual sign-in later
+    // Navigate to welcome screen AFTER clearing everything
+    console.log('🔄 Navigating to welcome screen...');
+    // Import router dynamically to avoid circular dependencies
+    const { router } = await import('expo-router');
+    router.replace('/(welcome)');
+    
+    // Keep the prevention flags active longer to ensure no auto guest sign-in
     setTimeout(() => {
-      console.log('🔄 Clearing logout prevention flags');
+      console.log('🔄 Clearing logout prevention flags after 10 seconds');
       setJustSignedOut(false);
       setSignOutTimestamp(null);
-      // Keep disableAutoGuestSignIn true to prevent auto guest sign-in
-    }, 5000);
+      // Keep disableAutoGuestSignIn true permanently until manually overridden
+    }, 10000); // Extended to 10 seconds
     
     console.log('✅ Logout completed');
   }, [user]);
@@ -639,6 +687,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Load friends list
   const loadFriends = useCallback(async () => {
     if (!user) return;
+    
+    // Skip loading friends for anonymous users
+    if (user.isAnonymous) {
+      console.log('Skipping friends loading for anonymous user');
+      setFriends([]);
+      setIsLoadingFriends(false);
+      return;
+    }
     
     setIsLoadingFriends(true);
     try {
@@ -697,6 +753,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Load shared shows
   const loadSharedShows = useCallback(async () => {
     if (!user) return;
+    
+    // Skip loading shared shows for anonymous users
+    if (user.isAnonymous) {
+      console.log('Skipping shared shows loading for anonymous user');
+      setSharedShows([]);
+      setIsLoadingSharedShows(false);
+      return;
+    }
     
     setIsLoadingSharedShows(true);
     try {

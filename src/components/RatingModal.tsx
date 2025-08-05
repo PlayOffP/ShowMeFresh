@@ -15,6 +15,8 @@ export default function RatingModal({ show, visible, onClose }: RatingModalProps
   const [rating, setRating] = useState(0);
   const { addReview } = useAppContext();
   const { width, height } = useWindowDimensions();
+  
+  // Landscape detection
   const isLandscape = width > height;
 
   if (!show) return null;
@@ -96,11 +98,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  containerLandscape: {
-    padding: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+
   modal: {
     width: '85%',
     maxWidth: 400,
@@ -108,11 +106,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
   },
-  modalLandscape: {
-    width: '60%',
-    maxWidth: 450,
-    alignSelf: 'center',
-  },
+
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -163,5 +157,18 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Medium',
     fontSize: 16,
     color: 'white',
+  },
+  
+  // Landscape-specific styles
+  containerLandscape: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  modalLandscape: {
+    maxWidth: '60%',
+    width: 500,
+    maxHeight: '80%',
   },
 });

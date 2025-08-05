@@ -2,6 +2,7 @@ import { View, Text, Pressable, StyleSheet, Image, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext';
 import { useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -17,12 +18,31 @@ export default function WelcomeScreen() {
   };
 
   const handleAnonymousSignIn = async () => {
+    if (isLoading) {
+      // Anonymous sign-in already in progress
+      return;
+    }
+    
     setIsLoading(true);
+    // Manual anonymous sign-in initiated
+    
     try {
+      // Import AppContext to clear the auto guest sign-in prevention flags
+      const { useAppContext } = await import('../../src/context/AppContext');
+      
+      // Clear any auto guest sign-in prevention flags before manual sign-in
+      await AsyncStorage.setItem('disableAutoGuestSignIn', 'false');
+      // Cleared auto guest sign-in prevention flags
+      
+      // Ensure anonymous users start fresh with onboarding
+      await AsyncStorage.removeItem('onboarded');
+      // Cleared global onboarding status for fresh start
+      
       await signInAnonymously();
+      // Manual anonymous sign-in completed
       // Auth state change will handle redirect to main app
     } catch (error: any) {
-      console.error('Anonymous sign in error:', error);
+      console.error('🚨 Anonymous sign in error:', error);
       
       // If anonymous auth is disabled, suggest email sign in instead
       if (error.message?.includes('Anonymous sign in is currently disabled')) {

@@ -60,45 +60,144 @@ export function TrailerPlayer({
   height: number;
   showId: string;
 }) {
+  
   const [playing, setPlaying] = useState(false);
   const [playerState, setPlayerState] = useState('unknown');
   const [playerReady, setPlayerReady] = useState(false);
+
+  // Removed debug logging
+
+  // Removed debug logging
+
+
+
+
 
   
   const { logInteraction, updateGenreWeight } = useAppContext();
   const playerRef = useRef<any>(null);
 
-  // Simple auto-play control
+  // TikTok-style focus control: immediate pause when focus lost, aggressive auto-play when gained
   useEffect(() => {
-    if (!playerReady) return;
+    // Focus state changed
     
     if (isFocused) {
-      console.log(`[TrailerPlayer] ${showId} - 🎯 Auto-playing focused video`);
+      // AGGRESSIVE: Start playing immediately when focused
+      // Video gained focus - starting playback
       setPlaying(true);
+      
+      // Try to trigger play via player reference immediately
+      if (playerRef.current) {
+        setTimeout(() => {
+          try {
+            // Direct player control: seekTo(0) and play
+            playerRef.current?.seekTo?.(0);
+          } catch (e) {
+            // Direct player control failed
+          }
+        }, 100);
+      }
+      
+      // Additional auto-play attempts with more aggressive timing
+      setTimeout(() => {
+        if (isFocused) {
+          // Auto-play retry 1
+          setPlaying(true);
+          // Try player reference again
+          if (playerRef.current) {
+            try {
+              playerRef.current?.seekTo?.(0);
+            } catch (e) {
+              // Retry 1 player ref failed
+            }
+          }
+        }
+      }, 300);
+      
+      setTimeout(() => {
+        if (isFocused) {
+          // Auto-play retry 2
+          setPlaying(true);
+        }
+      }, 600);
+      
+      setTimeout(() => {
+        if (isFocused) {
+                      // Auto-play retry 3 (final)
+          setPlaying(true);
+        }
+      }, 1000);
     } else {
-      console.log(`[TrailerPlayer] ${showId} - ⏸️ Pausing unfocused video`);
+      // IMMEDIATE pause when focus is lost - like TikTok
+      // Focus lost - pausing
       setPlaying(false);
+      // No timeouts for pause - instant response
     }
-  }, [isFocused, playerReady, showId]);
+  }, [isFocused, showId]); // Removed playerReady dependency - be more aggressive
 
   const handlePlayerReady = useCallback(() => {
-    console.log(`[TrailerPlayer] ${showId} - Player ready`);
+    // Player ready
     setPlayerReady(true);
-  }, [showId]);
-
-  const handleStateChange = useCallback((state: string) => {
-    console.log(`[TrailerPlayer] ${showId} - 🔔 State changed to: ${state}`);
-    setPlayerState(state);
     
-    if (state === 'ended' && isFocused) {
-      // Auto-loop when video ends
-      console.log(`[TrailerPlayer] ${showId} - 🔄 Video ended - looping`);
+    // AGGRESSIVE: Start playback immediately if focused when ready
+    if (isFocused) {
+      // Player ready and focused, starting playback
       setPlaying(true);
+      
+      // Multiple aggressive attempts to trigger play
+      setTimeout(() => {
+        if (playerRef.current && isFocused) {
+          // Ready callback: Direct player control
+          try {
+            playerRef.current?.seekTo?.(0);
+          } catch (e) {
+            // Ready callback player control failed
+          }
+        }
+      }, 50);
+      
+      setTimeout(() => {
+        if (isFocused) {
+          // Ready callback retry 1
+          setPlaying(true);
+        }
+      }, 200);
+      
+      setTimeout(() => {
+        if (isFocused) {
+          // Ready callback retry 2
+          setPlaying(true);
+        }
+      }, 500);
+    } else {
+      // Player ready but not focused, staying paused
+      setPlaying(false);
     }
   }, [showId, isFocused]);
 
+  const handleStateChange = useCallback((state: string) => {
+    // State changed
+    setPlayerState(state);
+    
+    if (state === 'ended' && isFocused) {
+      // Auto-loop when video ends (only if still focused)
+      // Video ended - looping
+      setPlaying(true);
+    }
+    
+    // Log when video actually starts playing
+    if (state === 'playing') {
+      // Video is now playing
+    }
+    
+    // Log when video is paused (but don't auto-retry to avoid conflicts)
+    if (state === 'paused') {
+      // Video paused
+    }
+  }, [showId, isFocused, playing]);
+
   const handleError = useCallback((error: any) => {
-    console.log(`[TrailerPlayer] ${showId} - ❌ Error:`, error);
+    // Player error occurred
   }, [showId]);
 
   if (!url) {
@@ -109,73 +208,88 @@ export function TrailerPlayer({
   
   if (!youtubeVideoId) {
     return (
-      <View style={styles.centeredWrapper}>
-        <View style={styles.placeholder}>
-          <Text style={styles.placeholderText}>
-            Unsupported video format
-          </Text>
-        </View>
+      <View style={{
+        width: width,
+        height: height,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#000',
+      }}>
+        <Text style={styles.placeholderText}>
+          Unsupported video format
+        </Text>
       </View>
     );
   }
 
-  console.log(`[TrailerPlayer] ${showId} - Rendering: videoId=${youtubeVideoId}, playing=${playing}, ready=${playerReady}`);
+      // Rendering player
 
   return (
-    <View style={styles.centeredWrapper}>
-      <View style={styles.videoContainer}>
-        <YoutubePlayer
-          ref={playerRef}
-          height={height}
-          width={width}
-          videoId={youtubeVideoId}
-          play={playing}
-          onError={handleError}
-          onReady={handlePlayerReady}
-          onChangeState={handleStateChange}
-          onEnd={() => {
-            setPlaying(true); // Loop
-          }}
-          initialPlayerParams={{
-            playsinline: true,
-            mute: 1,
-            controls: 0,
-          }}
-          webViewStyle={{ 
-            backgroundColor: '#000',
-          }}
-          webViewProps={{
-            allowsInlineMediaPlayback: true,
-            mediaPlaybackRequiresUserAction: false,
-          }}
-        />
-      </View>
+    <View style={{
+      width: width,
+      height: height,
+      backgroundColor: '#000',
+    }}>
+      {/* Debug overlay removed */}
+      
+      <YoutubePlayer
+        key={youtubeVideoId}
+        ref={playerRef}
+        height={height}
+        width={width}
+        videoId={youtubeVideoId}
+        play={playing}
+        onError={handleError}
+        onReady={handlePlayerReady}
+        onChangeState={handleStateChange}
+        onEnd={() => {
+          if (isFocused) {
+            setPlaying(true); // Only loop if still focused
+          }
+        }}
+        initialPlayerParams={{
+          playsinline: true,
+          mute: 0, // Unmute since audio is working anyway
+          controls: 0,
+          autoplay: 1, // Enable autoplay for better immediate start
+          rel: 0, // Don't show related videos
+          modestbranding: 1, // Modest branding
+          fs: 0, // Disable fullscreen
+          cc_load_policy: 0, // Disable captions
+          iv_load_policy: 3, // Disable annotations
+          enablejsapi: 1, // Enable JS API for better control
+        }}
+        webViewStyle={{ 
+          backgroundColor: '#000',
+          width: width,
+          height: height,
+        }}
+        webViewProps={{
+          allowsInlineMediaPlayback: true,
+          mediaPlaybackRequiresUserAction: false,
+          bounces: false,
+          scrollEnabled: false,
+          startInLoadingState: false,
+          javaScriptEnabled: true,
+          domStorageEnabled: true,
+          allowsFullscreenVideo: false,
+          mixedContentMode: 'compatibility',
+          // Force webview to reload for each video
+          key: `webview-${youtubeVideoId}`,
+        }}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  centeredWrapper: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#000',
-  },
-  videoContainer: {
-    position: 'relative',
-    width: '100%',
-    height: '100%',
-  },
-  placeholder: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
   placeholderText: {
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 10,
   },
 });
+
+
+

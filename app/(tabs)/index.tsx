@@ -1,19 +1,14 @@
-import React, { useState, useRef } from 'react';
-import { StyleSheet, View, Text, Dimensions, Pressable, useWindowDimensions } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedScrollHandler,
-  useDerivedValue,
-  runOnJS,
-} from 'react-native-reanimated';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, StyleSheet, Text, Pressable, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { useSharedValue, useAnimatedScrollHandler, runOnJS } from 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { VideoCard } from '../../src/components/VideoCard';
 import ReviewDrawer from '../../src/components/ReviewDrawer';
 import RatingModal from '../../src/components/RatingModal';
 import { useAppContext } from '../../src/context/AppContext';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import useOnboarded from '../../src/hooks/useOnboarded';
 import { useTrendingShows, useForYouShows, Show } from '../../hooks/useShows';
+import useOnboarded from '../../src/hooks/useOnboarded';
 
 type FeedType = 'trending' | 'for-you';
 
@@ -21,12 +16,12 @@ interface ShowRowProps {
   show: Show;
   index: number;
   isFocused: boolean;
-  onReviewPress: (s: Show) => void;
-  onRatePress: (s: Show) => void;
+  onReviewPress: (show: Show) => void;
+  onRatePress: (show: Show) => void;
   onUnavailable: (id: string) => void;
 }
 
-const ShowRow = React.memo(({
+const ShowRow = ({ 
   show,
   index,
   isFocused,
@@ -34,7 +29,9 @@ const ShowRow = React.memo(({
   onRatePress,
   onUnavailable,
 }: ShowRowProps) => {
-  const { height: screenHeight } = useWindowDimensions();
+  const { height: screenHeight, width: screenWidth } = useWindowDimensions();
+  
+
   
   return (
     <Animated.View
@@ -51,7 +48,7 @@ const ShowRow = React.memo(({
       />
     </Animated.View>
   );
-});
+};
 
 export default function HomeScreen() {
   const { savedShows, isShowSaved, userProfile } = useAppContext();
@@ -63,28 +60,70 @@ export default function HomeScreen() {
   const [badIds, setBadIds] = useState<Set<string>>(new Set());
   const scrollY = useSharedValue(0);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const { height: screenHeight } = useWindowDimensions();
+  
+  // Get screen dimensions and refs first
+  const { height: screenHeight, width: screenWidth } = useWindowDimensions();
   const scrollRef = useRef<Animated.ScrollView>(null);
   const insets = useSafeAreaInsets();
+  
+  // Landscape detection
+  const isLandscape = screenWidth > screenHeight;
+  
+  // Ensure first video auto-plays immediately on mount
+  useEffect(() => {
+    setCurrentIndex(0);
+  }, []);
+
+  // Removed rotation handling logic as app is now portrait-only
 
   const handleUnavailable = (id: string) => setBadIds(prev => new Set(prev).add(id));
 
   const { data: trendingShows = [] } = useTrendingShows();
   const { data: forYouShows = [] } = useForYouShows();
   const shows: Show[] = activeTab === 'trending' ? trendingShows : forYouShows;
+  
+  // Ensure first video gets focused when shows load
+  useEffect(() => {
+    if (shows && shows.length > 0 && currentIndex === 0) {
+      // Force re-render to ensure focus is properly applied
+      setCurrentIndex(0);
+    }
+  }, [shows?.length, currentIndex]);
 
-  // Update current index based on scroll position
+  // Update current index based on scroll position with immediate video control
   const updateCurrentIndex = (newIndex: number) => {
-    if (newIndex !== currentIndex) {
+    // Safety check: ensure shows exist before filtering
+    if (!shows || !Array.isArray(shows)) {
+      return;
+    }
+    
+    const validShows = shows.filter(s => !badIds.has(s.id));
+    if (newIndex !== currentIndex && newIndex >= 0 && newIndex < validShows.length) {
       setCurrentIndex(newIndex);
     }
   };
 
-  // SIMPLE SCROLL HANDLER: Update scroll position and current index
+  // TikTok-style scroll handler: focus changes at 50% mark
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
       scrollY.value = event.contentOffset.y;
-      const newIndex = Math.max(0, Math.round(event.contentOffset.y / screenHeight));
+      
+      // Removed rotation handling as app is now portrait-only
+      
+      // Simple TikTok-style focus: whichever video occupies >50% of screen gets focus
+      const exactIndex = event.contentOffset.y / screenHeight;
+      const newIndex = Math.max(0, Math.round(exactIndex));
+      
+      // Track scroll position
+      
+      // Update focus immediately when crossing the 50% threshold
+      runOnJS(updateCurrentIndex)(newIndex);
+    },
+    onMomentumEnd: (event) => {
+      // Ensure final position is set correctly when scrolling stops
+      const exactIndex = event.contentOffset.y / screenHeight;
+      const newIndex = Math.max(0, Math.round(exactIndex));
+      // Scroll ended
       runOnJS(updateCurrentIndex)(newIndex);
     },
   });
@@ -111,35 +150,57 @@ export default function HomeScreen() {
     setActiveTab(tab);
     // Reset scroll position when switching tabs
     scrollRef.current?.scrollTo({ y: 0, animated: false });
+    // Immediately set current index to 0 to ensure proper video focus
     setCurrentIndex(0);
+    // Tab switched, reset to first video
   };
+
+
 
   const status = useOnboarded();
 
   if (status === 'loading') return null;
 
   return (
-    <GestureHandlerRootView style={[styles.container, { paddingTop: insets.top }]}> 
-      <View style={styles.container}>
-        <View style={styles.tabContainer}>
+    <GestureHandlerRootView style={[
+      styles.container, 
+      { paddingTop: insets.top },
+    ]}> 
+      <View style={[
+        styles.container,
+      ]}>
+        <View style={[
+          styles.tabContainer,
+          isLandscape && styles.tabContainerLandscape
+        ]}>
           <Pressable
-            style={[styles.tab, activeTab === 'trending' && styles.activeTab]}
+            style={[
+              styles.tab, 
+              activeTab === 'trending' && styles.activeTab,
+              isLandscape && styles.tabLandscape
+            ]}
             onPress={() => handleTabPress('trending')}
           >
             <Text style={[
               styles.tabText,
-              activeTab === 'trending' && styles.activeTabText
+              activeTab === 'trending' && styles.activeTabText,
+              isLandscape && styles.tabTextLandscape
             ]}>
               Trending
             </Text>
           </Pressable>
           <Pressable
-            style={[styles.tab, activeTab === 'for-you' && styles.activeTab]}
+            style={[
+              styles.tab, 
+              activeTab === 'for-you' && styles.activeTab,
+              isLandscape && styles.tabLandscape
+            ]}
             onPress={() => handleTabPress('for-you')}
           >
             <Text style={[
               styles.tabText,
-              activeTab === 'for-you' && styles.activeTabText
+              activeTab === 'for-you' && styles.activeTabText,
+              isLandscape && styles.tabTextLandscape
             ]}>
               For You
             </Text>
@@ -148,23 +209,28 @@ export default function HomeScreen() {
 
         <Animated.ScrollView
           ref={scrollRef}
-          style={styles.scrollView}
+          style={[
+            styles.scrollView,
+          ]}
           snapToInterval={screenHeight}
           decelerationRate="fast"
           showsVerticalScrollIndicator={false}
           bounces={false}
-          scrollEventThrottle={16}
+          scrollEventThrottle={1}
           onScroll={scrollHandler}
           pagingEnabled
-          contentContainerStyle={shows.length <= 1 ? { flex: 1 } : undefined}
+          contentContainerStyle={shows && shows.length <= 1 ? { flex: 1 } : undefined}
         >
-          {shows.filter(s => !badIds.has(s.id)).map((show, index) => {
+          {(shows || []).filter(s => !badIds.has(s.id)).map((show, index) => {
+            const isFocused = currentIndex === index;
+
+            
             return (
               <ShowRow
                 key={show.id}
                 show={show}
                 index={index}
-                isFocused={currentIndex === index}
+                isFocused={isFocused}
                 onReviewPress={handleReviewPress}
                 onRatePress={handleRatePress}
                 onUnavailable={handleUnavailable}
@@ -172,7 +238,7 @@ export default function HomeScreen() {
             );
           })}
           {/* Add empty space if only one show to prevent scroll issues */}
-          {shows.filter(s => !badIds.has(s.id)).length <= 1 && (
+          {(shows || []).filter(s => !badIds.has(s.id)).length <= 1 && (
             <View style={{ height: screenHeight }} />
           )}
         </Animated.ScrollView>
@@ -210,6 +276,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
   },
+
   tab: {
     flex: 1,
     paddingVertical: 12,
@@ -242,4 +309,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  
+  // Landscape-specific styles
+  tabContainerLandscape: {
+    top: 10,
+    paddingHorizontal: 16,
+  },
+  tabLandscape: {
+    paddingVertical: 8,
+    marginHorizontal: 6,
+    borderRadius: 20,
+  },
+  tabTextLandscape: {
+    fontSize: 14,
+  },
+
 });

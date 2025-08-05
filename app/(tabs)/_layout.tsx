@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, useWindowDimensions } from 'react-native';
 import { Bookmark, Home, Users } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -8,6 +8,10 @@ const queryClient = new QueryClient();
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
+  
+  // Landscape detection
+  const isLandscape = width > height;
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -22,16 +26,16 @@ export default function TabLayout() {
             zIndex: 40,
             backgroundColor: 'transparent',
             borderTopWidth: 0,
-            height: 60 + insets.bottom,
+            height: isLandscape ? 50 + insets.bottom : 60 + insets.bottom,
             paddingBottom: insets.bottom,
-            paddingTop: 10,
+            paddingTop: isLandscape ? 5 : 10,
           },
           tabBarActiveTintColor: '#FF0050',
           tabBarInactiveTintColor: '#FFFFFF',
           tabBarLabelStyle: {
             fontFamily: 'Inter-Medium',
-            fontSize: 12,
-            marginBottom: 6,
+            fontSize: isLandscape ? 10 : 12,
+            marginBottom: isLandscape ? 3 : 6,
           },
         }}>
         <Tabs.Screen
@@ -39,7 +43,7 @@ export default function TabLayout() {
           options={{
             title: 'Home',
             tabBarIcon: ({ color, size }) => (
-              <Home size={size} color={color} />
+              <Home size={isLandscape ? size * 0.8 : size} color={color} />
             ),
           }}
         />
@@ -48,7 +52,7 @@ export default function TabLayout() {
           options={{
             title: 'Must-Watch',
             tabBarIcon: ({ color, size }) => (
-              <Bookmark size={size} color={color} />
+              <Bookmark size={isLandscape ? size * 0.8 : size} color={color} />
             ),
           }}
         />
@@ -57,7 +61,7 @@ export default function TabLayout() {
           options={{
             title: 'Friends',
             tabBarIcon: ({ color, size }) => (
-              <Users size={size} color={color} />
+              <Users size={isLandscape ? size * 0.8 : size} color={color} />
             ),
           }}
         />

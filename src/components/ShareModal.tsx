@@ -30,6 +30,8 @@ export function ShareModal({ show, visible, onClose }: ShareModalProps) {
   const [message, setMessage] = useState('');
   const [isSharing, setIsSharing] = useState(false);
   const { width, height } = useWindowDimensions();
+  
+  // Landscape detection
   const isLandscape = width > height;
 
   const handleShare = async () => {
@@ -84,7 +86,10 @@ export function ShareModal({ show, visible, onClose }: ShareModalProps) {
       onRequestClose={handleClose}
       supportedOrientations={['portrait', 'landscape']}
     >
-      <View style={styles.backdrop}>
+      <View style={[
+        styles.backdrop,
+        isLandscape && styles.backdropLandscape
+      ]}>
         <View style={[
           styles.modal,
           isLandscape && styles.modalLandscape
@@ -214,11 +219,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
   },
-  modalLandscape: {
-    width: '70%',
-    maxWidth: 600,
-    maxHeight: '90%',
-  },
+
   gradient: {
     padding: 24,
   },
@@ -360,5 +361,18 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.5)',
     fontSize: 14,
     fontFamily: 'Inter-Regular',
+  },
+  
+  // Landscape-specific styles
+  backdropLandscape: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  modalLandscape: {
+    maxWidth: '75%',
+    width: 650,
+    maxHeight: '85%',
   },
 }); 

@@ -98,12 +98,28 @@ export default function Onboarding() {
       console.log('✅ Step 2 complete: Genres saved to AsyncStorage');
       
       console.log('🔄 Step 3: Updating user profile...');
-      // Update user profile with username and genres
-      await updateUserProfile({
+      // Update user profile with username and genres - with timeout
+      const updateProfilePromise = updateUserProfile({
         username,
         genres: selected,
       });
-      console.log('✅ Step 3 complete: User profile updated');
+      
+      // Add a timeout to prevent infinite hanging
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Profile update timeout after 10 seconds')), 10000);
+      });
+      
+      try {
+        await Promise.race([updateProfilePromise, timeoutPromise]);
+        console.log('✅ Step 3 complete: User profile updated');
+      } catch (timeoutError) {
+        console.warn('⚠️ Profile update timed out, proceeding with local storage only');
+        console.warn('⚠️ Error:', timeoutError);
+        
+        // If Firestore update fails/times out, at least save locally
+        // The profile state and AsyncStorage were already updated in updateUserProfile
+        console.log('📱 Proceeding with local profile data only');
+      }
       
       console.log('🔄 Step 4: Navigating to main app...');
       // Navigate to main app
@@ -310,7 +326,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   usernameInputSuccess: {
-    borderColor: '#00FF00',
+    borderColor: '#333',
     borderWidth: 2,
   },
   statusText: {

@@ -59,7 +59,7 @@ export default function MustWatchScreen() {
     })
     .filter((item): item is { show: Show; id: string } => item !== null);
 
-  console.log(`[Must-Watch] Found ${showsWithScores.length} of ${savedShows.length} saved shows in cache`);
+      // Found saved shows in cache
 
   const scoredShows = showsWithScores.map(item => {
     let score = 0;

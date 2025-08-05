@@ -25,7 +25,6 @@ export function SharedShows({ visible, onClose }: SharedShowsProps) {
   const { sharedShows, markSharedShowAsRead, user } = useAppContext();
   const [isLoading, setIsLoading] = useState(false);
   const { width, height } = useWindowDimensions();
-  const isLandscape = width > height;
 
   const handleMarkAsRead = async (sharedShowId: string) => {
     setIsLoading(true);

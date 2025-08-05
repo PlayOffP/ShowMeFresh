@@ -3,9 +3,10 @@ import { View, TextInput, Pressable, Text, StyleSheet, Alert, ActivityIndicator 
 import { useAuth } from '../../src/context/AuthContext';
 import { router } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function AuthScreen() {
-  const { signIn, signUp, sendPasswordReset } = useAuth();
+  const { signIn, signUp, sendPasswordReset, user } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mode, setMode] = useState<'login' | 'signup'>('login');
@@ -24,10 +25,43 @@ export default function AuthScreen() {
     try {
       if (mode === 'login') {
         await signIn(email.trim(), password);
+        
+        // Add a small delay to ensure auth state is updated
+        setTimeout(async () => {
+          try {
+            // Get the latest user from Firebase auth directly to get the uid
+            const currentUser = (await import('../../services/firebase')).auth.currentUser;
+            
+            if (currentUser) {
+              // Check onboarding status and redirect appropriately
+              const onboardingKey = `onboarded_${currentUser.uid}`;
+              const onboarded = await AsyncStorage.getItem(onboardingKey);
+              
+              if (onboarded === 'true') {
+                // User is onboarded, go to main app
+                // User signed in and onboarded, redirecting to tabs
+                router.replace('/(tabs)');
+              } else {
+                // User needs onboarding
+                // User signed in but not onboarded, redirecting to onboarding
+                router.replace('/onboarding');
+              }
+            } else {
+              // Fallback - force redirect to root which will handle navigation
+              // User state not ready, redirecting to root
+              router.replace('/');
+            }
+          } catch (navError) {
+            console.error('Navigation error after sign in:', navError);
+            // Fallback - force redirect to root
+            router.replace('/');
+          }
+        }, 500); // 500ms delay to ensure auth state is updated
+        
       } else {
         await signUp(email.trim(), password);
+        // For sign up, user will need to verify email first
       }
-      // Auth success will automatically redirect via AuthContext
     } catch (error: any) {
       console.error('Auth error:', error);
       Alert.alert('Error', error.message || 'Authentication failed');

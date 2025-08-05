@@ -32,22 +32,34 @@ export default function Index() {
 
   // Handle navigation based on auth and onboarding state
   useEffect(() => {
+    // Navigation logic check
+    
     // Wait for everything to be ready
-    if (authLoading || isInitializing) return;
+    if (authLoading || isInitializing) {
+      // Still loading, waiting
+      return;
+    }
 
     if (!user) {
       // User not authenticated - go to welcome
-      console.log('No user, redirecting to welcome');
+      // No user, redirecting to welcome
       router.replace('/(welcome)');
     } else {
       // User is authenticated
+      // User authenticated
+      
+      if (isOnboarded === null) {
+        // Onboarding status still loading
+        return;
+      }
+      
       if (!isOnboarded) {
         // User needs onboarding
-        console.log('User not onboarded, redirecting to onboarding');
+        // User not onboarded, redirecting to onboarding
         router.replace('/onboarding');
       } else {
         // User is authenticated and onboarded - go to main app
-        console.log('User ready, redirecting to tabs');
+        // User ready, redirecting to tabs
         router.replace('/(tabs)');
       }
     }
