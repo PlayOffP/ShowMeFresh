@@ -12,7 +12,10 @@
     "build:web": "expo export --platform web",
     "lint": "expo lint",
     "postinstall": "expo install --fix",
-    "eas-before-build": "node -e \"require('fs').rmSync('.expo', {recursive: true, force: true})\""
+    "eas-before-build": "node -e \"require('fs').rmSync('.expo', {recursive: true, force: true})\"",
+    "eas-build-ios": "yarn eas-before-build && eas build --platform ios --profile production --clear-cache",
+    "eas-build-android": "yarn eas-before-build && eas build --platform android --profile production --clear-cache",
+    "eas-build-all": "yarn eas-before-build && eas build --platform all --profile production --clear-cache"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.2.3",

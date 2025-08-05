@@ -16,10 +16,7 @@
       "developmentClient": false,
       "distribution": "store",
       "channel": "production",
-      "env": { "NODE_ENV": "production" },
-      "hooks": {
-        "prebuild": "yarn eas-before-build"
-      }
+      "env": { "NODE_ENV": "production" }
     }
   },
   "submit": {
