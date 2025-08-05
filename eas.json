@@ -15,7 +15,11 @@
       "autoIncrement": true,
       "developmentClient": false,
       "distribution": "store",
-      "channel": "production"
+      "channel": "production",
+      "env": { "NODE_ENV": "production" },
+      "hooks": {
+        "prebuild": "yarn eas-before-build"
+      }
     }
   },
   "submit": {
